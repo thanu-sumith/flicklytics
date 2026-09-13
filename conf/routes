@@ -1,0 +1,35 @@
+# Routes
+# This file defines all application routes (Higher priority routes first)
+# ~~~~
+# Map the root URL to the same page
+GET     /                       controllers.HomeController.index()
+# An example controller showing a sample home page
+GET     /Flicklytics             controllers.HomeController.index()
+# Handle the search form submission
+GET     /search                 controllers.HomeController.search(request: Request, query: String, category: String)
+# Map static resources from the /public folder to the /assets URL path
+GET     /assets/*file               controllers.Assets.versioned(path="/public", file: Asset)
+
+# Search Functionality
+GET     /search                 controllers.HomeController.search(request: Request, query: String, category: String)
+
+# --- INDIVIDUAL PART DEDICATED ROUTES ---
+
+# Part A: Movies/TV series Description readability
+GET     /itemDetails/:category/:id     controllers.HomeController.itemDetails(category: String, id: String)
+
+# Part B: Global Diversity
+GET   /globaldiversity/:id    controllers.HomeController.globalDiversity(id:Int)
+
+# Part C: Financial Performance
+GET     /finance/*query         controllers.HomeController.financialPerformance(query: String)
+
+# Part D: Person Stats
+GET     /person/:id/stats       controllers.HomeController.personStats(id: String)
+
+# Part E: Reviews
+GET     /reviews/:id/:category/:name    controllers.HomeController.reviews(id: String, category: String, name: String)
+
+# The Reactive WebSocket connection
+GET     /ws                         controllers.HomeController.ws()
+

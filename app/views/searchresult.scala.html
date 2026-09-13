@@ -1,0 +1,128 @@
+@(initialQuery: String, initialCategory: String)
+
+@main("FlickLytics - Reactive Results") {
+    <div class="finance-dashboard">
+        <div class="fintech-card" style="text-align: center; margin-bottom: 40px;">
+            <h1 style="font-size: 32px; color: #1F2937; margin-bottom: 8px;">FlickLytics Search</h1>
+            <div style="margin-bottom: 24px;">
+                <span id="connection-status" class="badge badge-na">Connecting to Server...</span>
+            </div>
+            <form id="reactive-search-form" class="search-form">
+                <input type="text" id="search-query" class="search-input" value="@initialQuery" placeholder="Enter search terms" required>
+                <select id="search-category" class="search-select">
+                    <option value="movie" @if(initialCategory == "movie"){selected}>Movie</option>
+                    <option value="tv" @if(initialCategory == "tv"){selected}>TV show</option>
+                    <option value="person" @if(initialCategory == "person"){selected}>Person</option>
+                </select>
+                <button type="submit" class="search-btn">Live Search!</button>
+            </form>
+        </div>
+
+        <div id="append-toast" style="display:none; position:sticky; top:16px; z-index:20; margin:0 auto 16px; max-width:360px; background:#111827; color:#fff; padding:12px 16px; border-radius:999px; text-align:center; box-shadow:0 10px 30px rgba(0,0,0,0.25);"></div>
+
+        <div id="search-history-container">
+            <div style="text-align: center; padding: 40px; color: #6B7280;">
+                <em>Opening secure WebSocket and analyzing search data...</em>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
+        const socket = new WebSocket(wsUrl);
+        const statusBadge = document.getElementById("connection-status");
+        const historyContainer = document.getElementById("search-history-container");
+        const searchForm = document.getElementById("reactive-search-form");
+        const toast = document.getElementById("append-toast");
+        let toastTimer = null;
+        let searchHistory = [];
+
+        function showToast(count) {
+            if (!count) return;
+            toast.textContent = `${count} new result${count === 1 ? "" : "s"} appended`;
+            toast.style.display = "block";
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => { toast.style.display = "none"; }, 2500);
+        }
+
+        function renderCard(record, movie) {
+            if (record.category === "person") {
+                const imageHtml = (movie.profilePath && movie.profilePath.trim() !== "")
+                    ? `<img src="https://image.tmdb.org/t/p/w500${movie.profilePath}" alt="Photo" class="movie-poster">`
+                    : `<div class="poster-placeholder">No Photo</div>`;
+                const photoLink = movie.profilePath
+                    ? `<div><strong><a href="https://image.tmdb.org/t/p/w500${movie.profilePath}" target="_blank">Photo</a></strong></div>`
+                    : "";
+                return `<div class="movie-card">${imageHtml}<div class="movie-details"><h3 class="movie-title">${movie.title}</h3><div class="movie-meta"><div><strong>ID:</strong> ${movie.id}</div><div><strong>Gender:</strong> ${movie.gender || "N/A"} | <strong>Department:</strong> ${movie.department || "N/A"}</div><div><strong>Popularity:</strong> ${movie.popularity}</div>${photoLink}</div><div class="action-links"><a href="/person/${movie.id}/stats" target="_blank" class="badge badge-profitable">Known for (Part D) -></a></div></div></div>`;
+            }
+
+            const imageHtml = (movie.posterPath && movie.posterPath.trim() !== "")
+                ? `<img src="https://image.tmdb.org/t/p/w500${movie.posterPath}" alt="Poster" class="movie-poster">`
+                : `<div class="poster-placeholder">No Poster</div>`;
+            const financeLink = (record.category === "movie")
+                ? `<div class="action-links"><a href="/finance/${encodeURIComponent(movie.title)}" target="_blank" class="badge badge-profitable">Financial Performance -></a></div>`
+                : "";
+            return `<div class="movie-card">${imageHtml}<div class="movie-details"><h3 class="movie-title"><a href="/itemDetails/${record.category}/${movie.id}" target="_blank">${movie.title}</a></h3><div class="movie-meta"><div><strong>ID:</strong> ${movie.id}</div><div><strong>Genres:</strong> ${movie.genres}</div><div><strong>Language:</strong> ${movie.language} | <strong>Release Date:</strong> ${movie.releaseDate}</div><div><strong>Popularity:</strong> ${movie.popularity} | <strong>Vote Average:</strong> ${movie.voteAverage}</div></div>${financeLink}<div class="action-links"><a href="/globaldiversity/${movie.id}" target="_blank" class="badge badge-high">Global Diversity (Part B) -></a></div><div class="action-links"><a href="/reviews/${movie.id}/${record.category}/${encodeURIComponent(movie.title)}" target="_blank" class="badge badge-high">Reviews (Part E) -></a></div></div></div>`;
+        }
+
+        function renderAllRecords(records) {
+            if (!records || records.length === 0) {
+                historyContainer.innerHTML = "<p style='text-align:center;'>No results found.</p>";
+                return;
+            }
+
+            historyContainer.innerHTML = records.map(record => {
+                const cards = (record.results || []).map(movie => renderCard(record, movie)).join("");
+                return `<div class="history-block"><h3 style="color: #374151; margin-bottom: 16px;">Search terms: <strong>${record.query}</strong> | Category: <strong>${record.category}</strong> | Total results: <strong>${record.totalResults}</strong></h3><div class="results-grid">${cards}</div></div>`;
+            }).join("<hr style='border: 0; height: 1px; background: rgba(0,0,0,0.1); margin: 40px 0;'>");
+        }
+
+        function upsertHistoryRecord(record) {
+            if (!record) return;
+            const key = `${record.query}|${record.category}`;
+            searchHistory = [record, ...searchHistory.filter(item => `${item.query}|${item.category}` !== key)];
+            searchHistory = searchHistory.slice(0, 10);
+            renderAllRecords(searchHistory);
+        }
+
+        socket.onopen = function() {
+            statusBadge.textContent = "Live Stream Active";
+            statusBadge.className = "badge badge-blockbuster";
+            setInterval(() => {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ action: "ping" }));
+                }
+            }, 30000);
+            socket.send(JSON.stringify({ action: "search", query: "@initialQuery", category: "@initialCategory" }));
+        };
+
+        searchForm.addEventListener("submit", function(event) {
+            event.preventDefault();
+            const q = document.getElementById("search-query").value;
+            const c = document.getElementById("search-category").value;
+            socket.send(JSON.stringify({ action: "search", query: q, category: c }));
+        });
+
+        socket.onmessage = function(event) {
+            const response = JSON.parse(event.data);
+            if (response.messageType === "searchResults") {
+                const historyList = response.data;
+                if (!historyList || historyList.length === 0) {
+                    historyContainer.innerHTML = "<p style='text-align:center;'>No results found.</p>";
+                    return;
+                }
+                searchHistory = historyList.slice(0, 10);
+                renderAllRecords(searchHistory);
+            }
+            if (response.messageType === "searchAppendNotice") {
+                upsertHistoryRecord(response.data);
+                showToast(response.appendedCount || 0);
+            }
+        };
+
+        socket.onclose = function() {
+            statusBadge.textContent = "Disconnected";
+            statusBadge.className = "badge badge-loss";
+        };
+    </script>
+}

@@ -1,0 +1,8 @@
+.git
+target
+project/target
+project/project
+.env
+.env.*
+.DS_Store
+*.iml

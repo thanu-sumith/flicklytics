@@ -1,0 +1,201 @@
+// package models;
+
+// import org.junit.Test;
+// import static org.junit.Assert.*;
+// import com.fasterxml.jackson.databind.ObjectMapper;
+// import com.fasterxml.jackson.databind.node.ObjectNode;
+// /**
+//  * Unit tests for the {@link ReadabilityResult} model.
+//  * This test suite ensures 100% instruction and branch coverage for all
+//  * readability calculations and JSON mapping logic.
+//  * * @author Harshavardhini Eluri
+//  */
+// public class ReadabilityResultTest {
+//     /** Jackson ObjectMapper used for creating mock JSON data for tests. */
+//     private final ObjectMapper mapper = new ObjectMapper();
+
+//     /**
+//      * Tests the handling of null and empty string inputs in the readability methods.
+//      * Ensures that the system returns a default score of 0.0 without crashing.
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testEmptyAndNullHandling() {
+//         ReadabilityResult result = new ReadabilityResult("Test", "", 0, 0);
+
+//         // Testing specific branches in your calculation methods
+//         assertEquals(0.0, result.calculateEase(""), 0.01);
+//         assertEquals(0.0, result.calculateEase(null), 0.01);
+//         assertEquals(0.0, result.calculateGrade(""), 0.01);
+//     }
+
+//     /**
+//      * Tests special linguistic rules in syllable counting, including hyphenated
+//      * words and specific suffixes like "-ia", "-io", and "-ion".
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testSpecialSyllableLogic() {
+//         // This targets the .endsWith("ia"), ("io"), ("ion") and hyphen logic
+//         String text = "The media-station provides action.";
+//         ReadabilityResult result = new ReadabilityResult("Test", text, 0, 0);
+
+//         double score = result.calculateEase(text);
+//         assertNotEquals(0.0, score, 0.01);
+//     }
+
+//     /**
+//      * Verifies the core JSON mapping logic for Movie objects.
+//      * Tests the extraction of common fields such as title, overview, vote average, and genres.
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testFromJsonMapping() {
+//         ObjectNode json = mapper.createObjectNode();
+//         // 1. Title/Name check
+//         json.put("title", "Interstellar");
+//         // 2. Overview check
+//         json.put("overview", "Explorers travel through a wormhole.");
+//         // 3. Vote Average check (This was the error - key must be "vote_average")
+//         json.put("vote_average", 8.5);
+
+//         // 4. Genres array check
+//         json.putArray("genres").addObject().put("name", "Sci-Fi");
+
+//         // Run the mapping
+//         ReadabilityResult movie = ReadabilityResult.fromJson(json, "movie");
+
+//         // Verify the results
+//         assertEquals("Interstellar", movie.title);
+//         assertEquals(8.5, movie.voteAverage, 0.01);
+//         assertEquals("Explorers travel through a wormhole.", movie.overview);
+//         assertFalse(movie.genres.isEmpty());
+//         assertEquals("Sci-Fi", movie.genres.get(0));
+//     }
+
+//     /**
+//      * Validates the Flesch Reading Ease calculation using a standard simple sentence.
+//      * Ensures the formula correctly identifies simple text as high-scoring.
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testFleschReadingEase() {
+//         // A simple sentence for testing
+//         String text = "The cat sat on the mat.";
+//         ReadabilityResult result = new ReadabilityResult("Test", text, 0, 0);
+//         double score = result.calculateEase(text);
+
+//         // Check that a score is generated (Simple sentences are usually > 100)
+//         assertTrue("Score should be a positive number", score > 0);
+//     }
+
+//     /**
+//      * Validates the Flesch-Kincaid Grade Level calculation.
+//      * Ensures the resulting school grade level is a valid, non-negative number.
+//      * @author Harshavardhini Eluri
+//      */
+//    @Test
+//     public void testFleschKincaidGrade() {
+//         String text = "This is a slightly more complex sentence for testing purposes.";
+//         ReadabilityResult result = new ReadabilityResult("Test", text, 0, 0);
+//         double grade = result.calculateGrade(text);
+
+//         // Ensure the grade level is calculated correctly
+//         assertTrue("Grade level should be calculated", grade >= 0);
+//     }
+
+//     /**
+//      * Tests the TV-specific branch of the fromJson factory method.
+//      * Verifies mapping for unique TV fields like air date, episode count, and networks.
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testTvShowMapping() {
+//         // This covers the 'else' branch of the fromJson method (the TV show part)
+//         ObjectNode json = mapper.createObjectNode();
+//         json.put("name", "Breaking Bad");
+//         json.put("overview", "A high school chemistry teacher...");
+//         json.put("first_air_date", "2008-01-20");
+//         json.put("number_of_episodes", 62);
+
+//         // This covers the extractList helper for networks
+//         json.putArray("networks").addObject().put("name", "AMC");
+
+//         ReadabilityResult tv = ReadabilityResult.fromJson(json, "tv");
+
+//         assertEquals("Breaking Bad", tv.title);
+//         assertEquals(62, tv.numberOfEpisodes);
+//         assertTrue(tv.networks.contains("AMC"));
+//     }
+
+//     /**
+//      * Tests the Movie-specific branch of the fromJson factory method.
+//      * Verifies mapping for unique Movie fields like revenue, runtime, and production companies.
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testMovieSpecificFields() {
+//         // This covers movie-only fields like revenue and production companies
+//         ObjectNode json = mapper.createObjectNode();
+//         json.put("title", "Avatar");
+//         json.put("overview", "A paraplegic Marine...");
+//         json.put("revenue", 2847246203L);
+//         json.put("runtime", 162);
+
+//         // This covers extractList for production companies and languages
+//         json.putArray("production_companies").addObject().put("name", "20th Century Fox");
+//         json.putArray("spoken_languages").addObject().put("english_name", "English");
+
+//         ReadabilityResult movie = ReadabilityResult.fromJson(json, "movie");
+
+//         assertEquals(2847246203L, movie.revenue);
+//         assertEquals(162, movie.runtime);
+//         assertTrue(movie.productionCompanies.contains("20th Century Fox"));
+//     }
+
+//     /**
+//      * Verifies the edge case where a poster path is missing or null in the JSON input.
+//      * Ensures the system assigns an empty string instead of null to prevent View-layer errors.
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testPosterPathEdgeCase() {
+//         // This covers the line: result.posterPath = json.path("poster_path").isMissingNode()...
+//         ObjectNode json = mapper.createObjectNode();
+//         json.put("title", "No Image Movie");
+//         json.set("poster_path", com.fasterxml.jackson.databind.node.NullNode.getInstance());
+
+//         ReadabilityResult result = ReadabilityResult.fromJson(json, "movie");
+//         assertEquals("", result.posterPath);
+//     }
+
+//     /**
+//      * Tests the syllable counting logic with complex multisyllabic words.
+//      * Ensures vowel clusters and silent 'e' rules are applied correctly.
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testSyllableCounting() {
+//         // You can add a specific test for your syllable logic if needed
+//         // to ensure words with silent 'e' or multiple vowels are handled.
+//         String complexText = "Creating an integrated environment for development.";
+//         ReadabilityResult result = new ReadabilityResult("Complex", complexText, 0, 0);
+
+//         double score = result.calculateEase(complexText);
+//         assertTrue("Complex text should yield a valid score", score != 0);
+//     }
+
+//     /**
+//      * Directly tests the vowel-checking helper method.
+//      * Provides coverage for the protected isVowel method.
+//      * @author Harshavardhini Eluri
+//      */
+//     @Test
+//     public void testIsVowelHelper() {
+//         // COVERS: The isVowel(char) method which currently shows 0%
+//         ReadabilityResult result = new ReadabilityResult("Test", "Text", 0, 0);
+//         assertTrue(result.isVowel('a'));
+//         assertFalse(result.isVowel('z'));
+//     }
+
+// }

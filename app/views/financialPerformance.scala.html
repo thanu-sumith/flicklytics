@@ -1,0 +1,111 @@
+@(query: String)
+
+@main("FlickLytics - Financial Performance") {
+
+    <div class="finance-dashboard">
+        <div class="header-section">
+            <h1>Financial Performance <span id="connection-status" class="badge badge-na" style="margin-left: 15px;">Connecting...</span></h1>
+            <p>Analyzing Search: <strong>@query</strong></p>
+        </div>
+
+        <div class="fintech-card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Movie Title</th>
+                        <th>Budget</th>
+                        <th>Revenue</th>
+                        <th>Net Profit / Loss</th>
+                        <th>ROI %</th>
+                        <th>Financial Rating</th>
+                    </tr>
+                </thead>
+                <tbody id="finance-table-body">
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px; color: #6B7280;">
+                            <em>Opening secure WebSocket and analyzing financial data...</em>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+            // 1. Establish the WebSocket connection
+            const wsUrl = (location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws";
+            const socket = new WebSocket(wsUrl);
+
+            const statusBadge = document.getElementById("connection-status");
+            const tableBody = document.getElementById("finance-table-body");
+
+            // 2. When the connection opens, ask the ManagerActor for the data!
+            socket.onopen = function(event) {
+                statusBadge.textContent = "Live Stream Active";
+                statusBadge.className = "badge badge-blockbuster";
+                setInterval(() => {
+                    if (socket.readyState === WebSocket.OPEN) {
+                        socket.send(JSON.stringify({ action: "ping" }));
+                    }
+                }, 30000);
+
+                // Send the JSON message format that we defined in ManagerActor.java
+                const message = {
+                    action: "financial",
+                    query: "@query"
+                };
+                socket.send(JSON.stringify(message));
+            };
+
+            // 3. Listen for data coming BACK from the ManagerActor
+            socket.onmessage = function(event) {
+                const response = JSON.parse(event.data);
+
+                if (response.messageType === "financialResults") {
+                    tableBody.innerHTML = ""; // Clear the "Waiting" text
+                    const stats = response.data;
+
+                    if (stats.length === 0) {
+                        tableBody.innerHTML = "<tr><td colspan='6' style='text-align: center;'>No financial data available for this search.</td></tr>";
+                        return;
+                    }
+
+                    // Loop through the data and build the table rows
+                    stats.forEach(stat => {
+                        // Format the currency with JS
+                        const formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+                        const budget = formatter.format(stat.budget);
+                        const revenue = formatter.format(stat.revenue);
+                        const profit = formatter.format(stat.profit);
+                        const profitColor = stat.profit >= 0 ? "#065F46" : "#991B1B";
+
+                        // Determine the correct badge color
+                        let badgeClass = "badge-na";
+                        if (stat.financialRating === "Blockbuster Success") badgeClass = "badge-blockbuster";
+                        else if (stat.financialRating === "High Return") badgeClass = "badge-high";
+                        else if (stat.financialRating === "Profitable") badgeClass = "badge-profitable";
+                        else if (stat.financialRating === "Financial Loss") badgeClass = "badge-loss";
+
+                        // Inject the row into the HTML
+                        const row = `
+                        <tr>
+                            <td><strong>${stat.title}</strong></td>
+                            <td>${budget}</td>
+                            <td>${revenue}</td>
+                            <td style="font-weight: 600; color: ${profitColor};">${profit}</td>
+                            <td>${stat.formattedRoi}</td>
+                            <td><span class="badge ${badgeClass}">${stat.financialRating}</span></td>
+                        </tr>
+                    `;
+                        tableBody.innerHTML += row;
+                    });
+                }
+            };
+
+            // 4. Handle connection drops
+            socket.onclose = function(event) {
+                statusBadge.textContent = "Disconnected";
+                statusBadge.className = "badge badge-loss";
+            };
+    </script>
+}

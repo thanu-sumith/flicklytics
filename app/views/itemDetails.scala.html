@@ -1,0 +1,21 @@
+@(title: String, overview: String)
+
+@main("FlickLytics - Item Details") {
+
+    <div style="max-width: 800px; margin: 50px auto; padding: 20px; font-family: sans-serif;">
+        <center>
+            <h1>@title</h1>
+            <button onclick="history.back()" style="margin-bottom: 20px;">Back to Results</button>
+        </center>
+
+        <div style="background-color: #f4f4f4; padding: 20px; border-radius: 8px;">
+            <h3>Overview</h3>
+            <p style="line-height: 1.6;">@overview</p>
+
+            <hr style="margin: 20px 0;">
+
+
+
+        </div>
+    </div>
+}

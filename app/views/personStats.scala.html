@@ -1,0 +1,203 @@
+@(personId: String)
+
+@main("FlickLytics - Person Stats") {
+
+<div style="max-width: 900px; margin: 30px auto; padding: 20px;">
+
+    <center>
+        <h1>Person Stats</h1>
+        <h2 id="person-name">Loading...</h2>
+
+        <!-- Small subtle connection status badge -->
+        <span id="connection-status" style="
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            background-color: #e0e0e0;
+            color: #666;
+            margin-bottom: 10px;">
+            Connecting...
+        </span>
+    </center>
+
+    <!-- Loading -->
+    <div id="loading" style="text-align: center; padding: 40px;">
+        <p>Fetching person stats, please wait...</p>
+    </div>
+
+    <!-- Error -->
+    <div id="error-box" style="display:none; background-color:#ffe0e0;
+         padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <p id="error-message" style="color: red;"></p>
+    </div>
+
+    <!-- Stats -->
+    <div id="stats-section" style="display:none;">
+        <div style="background-color: #f4f4f4; padding: 20px;
+                    border-radius: 8px; margin-bottom: 20px;">
+            <h3>Summary Statistics</h3>
+            <table border="1" cellpadding="6" cellspacing="0" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Count</th>
+                        <th>Min</th>
+                        <th>Max</th>
+                        <th>Average</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Popularity</td>
+                        <td id="pop-count"></td>
+                        <td id="pop-min"></td>
+                        <td id="pop-max"></td>
+                        <td id="pop-avg"></td>
+                    </tr>
+                    <tr>
+                        <td>Vote Average</td>
+                        <td id="voteAvg-count"></td>
+                        <td id="voteAvg-min"></td>
+                        <td id="voteAvg-max"></td>
+                        <td id="voteAvg-avg"></td>
+                    </tr>
+                    <tr>
+                        <td>Vote Count</td>
+                        <td id="voteCount-count"></td>
+                        <td id="voteCount-min"></td>
+                        <td id="voteCount-max"></td>
+                        <td id="voteCount-avg"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Known For -->
+        <div style="background-color: #f4f4f4; padding: 20px;
+                    border-radius: 8px; margin-bottom: 20px;">
+            <h3>Known For Items (<span id="items-count">0</span> items)</h3>
+            <table border="1" cellpadding="6" cellspacing="0" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>S No.</th>
+                        <th>Title</th>
+                        <th>Type</th>
+                        <th>Popularity</th>
+                        <th>Vote Average</th>
+                        <th>Vote Count</th>
+                    </tr>
+                </thead>
+                <tbody id="items-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    var personId = "@personId";
+    var statusBadge = document.getElementById("connection-status");
+
+    var socket = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + window.location.host + "/ws");
+
+    socket.onopen = function() {
+        console.log("WebSocket connected");
+
+        // Small green Live badge
+        statusBadge.innerText = "● Live";
+        statusBadge.style.backgroundColor = "#d4edda";
+        statusBadge.style.color = "#155724";
+
+        socket.send(JSON.stringify({
+            action: "personStats",
+            personId: personId
+        }));
+    };
+
+    socket.onmessage = function(event) {
+        var message = JSON.parse(event.data);
+        console.log("Received:", message);
+
+        if (message.messageType === "personStatsResults") {
+            renderPersonStats(message.data);
+        } else if (message.messageType === "personStatsError") {
+            showError(message.message);
+        }
+    };
+
+    socket.onerror = function(error) {
+        console.error("WebSocket error:", error);
+        statusBadge.innerText = "● Disconnected";
+        statusBadge.style.backgroundColor = "#f8d7da";
+        statusBadge.style.color = "#721c24";
+        showError("Connection error. Please refresh.");
+    };
+
+    socket.onclose = function() {
+        console.log("WebSocket closed");
+        statusBadge.innerText = "● Disconnected";
+        statusBadge.style.backgroundColor = "#f8d7da";
+        statusBadge.style.color = "#721c24";
+    };
+
+    function renderPersonStats(data) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("stats-section").style.display = "block";
+
+        document.getElementById("person-name").innerText = data.personName;
+
+        var count = data.popularityCount;
+
+        document.getElementById("pop-count").innerText = count;
+        document.getElementById("pop-min").innerText = round2(data.popularityMin);
+        document.getElementById("pop-max").innerText = round2(data.popularityMax);
+        document.getElementById("pop-avg").innerText = round2(data.popularityAvg);
+
+        document.getElementById("voteAvg-count").innerText = count;
+        document.getElementById("voteAvg-min").innerText = round2(data.voteAvgMin);
+        document.getElementById("voteAvg-max").innerText = round2(data.voteAvgMax);
+        document.getElementById("voteAvg-avg").innerText = round2(data.voteAvgAvg);
+
+        document.getElementById("voteCount-count").innerText = count;
+        document.getElementById("voteCount-min").innerText = data.voteCountMin;
+        document.getElementById("voteCount-max").innerText = data.voteCountMax;
+        document.getElementById("voteCount-avg").innerText = Math.round(data.voteCountAvg);
+
+        var items = data.items;
+        document.getElementById("items-count").innerText = items.length;
+
+        var tbody = document.getElementById("items-table-body");
+        tbody.innerHTML = "";
+
+        for (var i = 0; i < items.length; i++) {
+            var item = items[i];
+            var row = "<tr>" +
+                "<td>" + (i + 1) + "</td>" +
+                "<td>" + item.title + "</td>" +
+                "<td>" + item.mediaType + "</td>" +
+                "<td>" + round2(item.popularity) + "</td>" +
+                "<td>" + round1(item.voteAverage) + "</td>" +
+                "<td>" + item.voteCount + "</td>" +
+                "</tr>";
+            tbody.innerHTML += row;
+        }
+    }
+
+    function showError(message) {
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("error-box").style.display = "block";
+        document.getElementById("error-message").innerText = message;
+    }
+
+    function round2(num) {
+        return Math.round(num * 100.0) / 100.0;
+    }
+
+    function round1(num) {
+        return Math.round(num * 10.0) / 10.0;
+    }
+</script>
+
+}

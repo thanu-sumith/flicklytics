@@ -1,0 +1,32 @@
+@()
+
+@main("Welcome to FlickLytics") {
+    <style>
+    body {
+    background-image: url("/assets/images/2791.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    }
+    </style>
+
+    <div class="landing-wrapper">
+        <div class="fintech-card landing-card">
+
+            <h1 class="landing-title">FlickLytics</h1>
+            <p class="landing-subtitle">Deep-dive analytics, financial performance, and sentiment tracking for Movies, TV Shows, and Actors.</p>
+
+            <form action="/search" method="GET" class="search-form" style="margin-bottom: 0;">
+                <input type="text" name="query" class="search-input" placeholder="Search for a movie, show, or person..." required>
+                <select name="category" class="search-select">
+                    <option value="movie">Movie</option>
+                    <option value="tv">TV Show</option>
+                    <option value="person">Person</option>
+                </select>
+                <button type="submit" class="search-btn">Analyze</button>
+            </form>
+
+        </div>
+    </div>
+}
